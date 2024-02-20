@@ -8,6 +8,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "msp.h"
+#include <stdbool.h>
 
 #define _BSD_SOURCE
 #define NUM_AXES 12
@@ -17,6 +18,8 @@
 #define AXIS_YAW 0
 #define AXIS_ROLL 3 
 #define AXIS_PITCH 4
+
+#define BUTTON_ARM 0 
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 5762
@@ -99,6 +102,31 @@ uint16_t joystickToRcValue(int32_t input)
   return ((uint16_t)rc_value);
 }
 
+uint16_t buttonToRCValue(int32_t button, bool state)
+{
+  static bool button_state[NUM_BUTTONS] = {0};
+  static bool last_button_state[NUM_BUTTONS] = {0}; 
+  uint16_t output = 0;
+
+  // if (button_state[button] == last_button_state[button])
+  // {
+  //   last_button_state[button] = state;
+  // }
+
+  if (state == 1)
+  {
+    if (last_button_state[button] != state)
+    {
+      button_state[button] = !button_state[button];
+    }
+  }
+
+  output = 1200 + (uint16_t)button_state[button]*600;
+
+  last_button_state[button] = state;
+  return (output);
+}
+
 int main() 
 {
   struct msp_set_raw_rc_t raw_rc = {0};
@@ -151,24 +179,25 @@ int main()
 
     printf("\033[2J");
 
-    // for (int axis = 0; axis < NUM_AXES; axis++)
-    // {
-    //   printf("Axis %d: %d\n", axis, axes[axis]);
-    // }
-    //
-    // for (int axis = 0; axis < NUM_AXES; axis++)
-    // {
-    //   printf("Button %d: %d\n", axis, buttons[axis]);
-    // }
+    for (int axis = 0; axis < NUM_AXES; axis++)
+    {
+      printf("Axis %d: %d\n", axis, axes[axis]);
+    }
+
+    for (int axis = 0; axis < NUM_AXES; axis++)
+    {
+      printf("Button %d: %d\n", axis, buttons[axis]);
+    }
     
     raw_rc.channels[0] =  joystickToRcValue(axes[AXIS_ROLL]);
     raw_rc.channels[1] =  joystickToRcValue(-axes[AXIS_PITCH]); 
     raw_rc.channels[2] =  joystickToRcValue(-axes[AXIS_THROTTLE]); 
     raw_rc.channels[3] =  joystickToRcValue(axes[AXIS_YAW]); 
+    raw_rc.channels[4] =  buttonToRCValue(BUTTON_ARM, buttons[BUTTON_ARM]);
 
-    for (uint32_t i = 0; i < 4; i++)
+    for (uint32_t i = 0; i < 5; i++)
     {
-      printf("Axis%lu: %lu\n", i,  raw_rc.channels[i]);
+      printf("Channel %d: %d\n", i,  raw_rc.channels[i]);
     }
 
     mspSendData(sizeof(raw_rc), MSP_SET_RAW_RC, (uint8_t *)&raw_rc);
